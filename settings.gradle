@@ -1,0 +1,4 @@
+rootProject.name = 'asn1-viewer'
+
+include 'java-service'
+

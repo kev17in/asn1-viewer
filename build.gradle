@@ -1,0 +1,213 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.beryx.runtime' version '1.13.1'
+}
+
+group = 'com.asn1viewer'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+// 自动检测操作系统
+def currentOS = org.gradle.internal.os.OperatingSystem.current()
+def platform
+if (currentOS.isWindows()) {
+    platform = 'win'
+} else if (currentOS.isLinux()) {
+    platform = 'linux'
+} else if (currentOS.isMacOsX()) {
+    platform = 'mac'
+}
+
+dependencies {
+    implementation 'com.beanit:asn1bean:1.14.0'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.78.1'
+    implementation 'cn.hutool:hutool-all:5.8.40'
+    
+    // SLF4J API + Log4j2 实现
+    implementation 'org.slf4j:slf4j-api:2.0.9'
+    implementation 'org.apache.logging.log4j:log4j-api:2.21.1'
+    implementation 'org.apache.logging.log4j:log4j-core:2.21.1'
+    implementation 'org.apache.logging.log4j:log4j-slf4j2-impl:2.21.1'
+    
+    // JavaFX 依赖
+    implementation "org.openjfx:javafx-controls:21.0.2:${platform}"
+    implementation "org.openjfx:javafx-fxml:21.0.2:${platform}"
+    implementation "org.openjfx:javafx-graphics:21.0.2:${platform}"
+    implementation "org.openjfx:javafx-base:21.0.2:${platform}"
+    implementation "org.openjfx:javafx-web:21.0.2:${platform}"
+    implementation "org.openjfx:javafx-swing:21.0.2:${platform}"
+    
+    // RichTextFX for code editor with syntax highlighting
+    implementation 'org.fxmisc.richtext:richtextfx:0.11.2'
+    
+    // ZXing - 二维码生成和识别
+    implementation 'com.google.zxing:core:3.5.3'
+    implementation 'com.google.zxing:javase:3.5.3'
+    
+    // Lombok for annotations
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+}
+
+application {
+    mainClass = 'com.kev17in.asn1viewer.Launcher'
+}
+
+// 确保 run 任务能传递系统属性
+run {
+    // 从环境变量或命令行传递系统属性
+    systemProperties = System.properties.findAll { it.key.startsWith('asn1viewer.') }
+    
+    // 如果设置了 JAVA_OPTS 环境变量
+    if (System.getenv('JAVA_OPTS')) {
+        jvmArgs System.getenv('JAVA_OPTS').split(' ')
+    }
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'com.kev17in.asn1viewer.Launcher'
+    }
+    
+    // 创建 fat jar
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    // 排除签名文件（解决 BouncyCastle 签名冲突）
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+}
+
+// 创建可分发的 fat jar
+tasks.register('fatJar', Jar) {
+    archiveClassifier = 'all'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    
+    manifest {
+        attributes 'Main-Class': 'com.kev17in.asn1viewer.Launcher'
+    }
+    
+    from sourceSets.main.output
+    
+    dependsOn configurations.runtimeClasspath
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    // 排除签名文件（解决 BouncyCastle 签名冲突）
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// 处理 BouncyCastle 签名问题
+tasks.register('unsignBcJar') {
+    dependsOn 'installDist'
+    doLast {
+        def libDir = file("${buildDir}/install/${project.name}/lib")
+        libDir.eachFile { jar ->
+            if (jar.name.contains('bcprov')) {
+                println "Removing signatures from ${jar.name}"
+                ant.jar(destfile: "${jar.absolutePath}.tmp") {
+                    zipfileset(src: jar.absolutePath) {
+                        exclude(name: 'META-INF/*.SF')
+                        exclude(name: 'META-INF/*.DSA')
+                        exclude(name: 'META-INF/*.RSA')
+                    }
+                }
+                jar.delete()
+                file("${jar.absolutePath}.tmp").renameTo(jar)
+            }
+        }
+    }
+}
+
+tasks.named('jre') {
+    dependsOn 'unsignBcJar'
+}
+
+// 配置运行时打包（包含 JRE）
+runtime {
+    options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages', '--ignore-signing-information']
+    
+    modules = [
+        'java.base',
+        'java.desktop',
+        'java.logging',
+        'java.sql',
+        'java.xml',
+        'java.naming',
+        'java.scripting',
+        'java.management',
+        'java.security.jgss',
+        'java.instrument',
+        'java.prefs',
+        'java.datatransfer',
+        'java.net.http',
+        'java.compiler',
+        'java.security.sasl',
+        'java.transaction.xa',
+        'java.rmi',
+        'jdk.unsupported',
+        'jdk.crypto.ec',
+        'jdk.localedata',
+        'jdk.zipfs',
+        'jdk.jfr'
+    ]
+    
+    jpackage {
+        imageName = 'ASN1-Viewer'
+        installerName = 'ASN1-Viewer-Setup'
+        installerType = 'exe'
+        
+        jvmArgs = [
+            '-Xmx512m',
+            '-Dfile.encoding=UTF-8',
+            '-Dsun.jnu.encoding=UTF-8',
+            '-Duser.language=zh',
+            '-Duser.country=CN',
+            '--add-opens=java.base/java.lang=ALL-UNNAMED',
+            '--add-opens=java.base/java.lang.reflect=ALL-UNNAMED',
+            '--add-opens=java.base/java.io=ALL-UNNAMED',
+            '--add-opens=java.base/java.net=ALL-UNNAMED',
+            '--add-opens=java.base/java.util=ALL-UNNAMED',
+            '--add-exports=java.base/jdk.internal.loader=ALL-UNNAMED'
+        ]
+        
+        imageOptions = [
+            '--vendor', 'kev17in',
+            '--description', 'ASN.1 / JSON 数据解析查看工具',
+            '--copyright', 'Copyright 2024 kev17in',
+            '--app-version', "${project.version}",
+            '--icon', 'src/main/resources/com/kev17in/asn1viewer/icons/app.ico'
+        ]
+        
+        installerOptions = [
+            '--win-dir-chooser',
+            '--win-menu',
+            '--win-menu-group', 'ASN1 Viewer',
+            '--win-shortcut',
+            '--win-shortcut-prompt',
+            '--win-upgrade-uuid', 'a5b8c7d9-e4f3-4a2b-9c8d-7e6f5a4b3c2d',  // 固定 UUID，支持升级安装
+            '--vendor', 'kev17in',
+            '--description', 'ASN.1 / JSON 数据解析查看工具',
+            '--copyright', 'Copyright 2024 kev17in',
+            '--app-version', "${project.version}"
+        ]
+    }
+}

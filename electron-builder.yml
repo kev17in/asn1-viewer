@@ -1,0 +1,38 @@
+appId: com.kev17in.asn1viewer
+productName: ASN1-Viewer
+copyright: Copyright 2024 kev17in
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - "!node_modules/**/*"
+
+extraResources:
+  - from: java-service/build/libs/java-service-1.0.0-all.jar
+    to: java-service.jar
+  - from: resources/icon.png
+    to: icon.png
+
+mac:
+  target:
+    - target: dmg
+      arch: [arm64]
+  icon: resources/icon.png
+  category: public.app-category.developer-tools
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/icon.png
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ASN1 Viewer

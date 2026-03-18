@@ -1,0 +1,89 @@
+# Gradle
+
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+env
+env/**
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+# Operating System Files
+
+*.DS_Store
+Thumbs.db
+
+# Build Files #
+
+out/
+target/
+
+
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+# Logs #
+
+logs/
+tomcat/
+
+# Generated file
+
+.opts
+
+# Node / Electron
+node_modules/
+dist/
+dist-electron/
+release/
+*.tsbuildinfo
+package-lock.json
+.env
+.env.*
+
+# Electron Builder
+*.exe
+*.dmg
+*.AppImage
+*.snap
+*.deb
+*.rpm
+
+# Java Service build
+java-service/build/
+java-service/.gradle/
+
+# Misc
+*.log
+npm-debug.log*
+.cache/
